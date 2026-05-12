@@ -1,6 +1,5 @@
 package com.heroku.java;
 
-import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
@@ -9,10 +8,7 @@ import org.springframework.web.bind.annotation.GetMapping;
 
 import javax.sql.DataSource;
 import java.sql.Connection;
-import java.sql.ResultSet;
-import java.sql.Statement;
 import java.util.ArrayList;
-import java.util.Date;
 import java.util.Map;
 import java.util.Random;
 
@@ -32,47 +28,28 @@ public class GettingStartedApplication {
     }
 
     @GetMapping("/database")
-    public String database(HttpServletRequest request) {
+    String database(Map<String, Object> model) {
         try (Connection connection = dataSource.getConnection()) {
-            Statement statement = connection.createStatement();
+            final var statement = connection.createStatement();
+            statement.executeUpdate("CREATE TABLE IF NOT EXISTS table_timestamp_and_random_string (tick timestamp, random_string varchar(50))");
+            statement.executeUpdate("INSERT INTO table_timestamp_and_random_string VALUES (now(), '" + getRandomString() + "')");
 
-            // Create table with new columns
-            statement.executeUpdate("CREATE TABLE IF NOT EXISTS " +
-                    "table_timestamp_and_random_string (tick timestamp, random_string varchar(50))");
-
-            // Insert timestamp and random string
-            statement.executeUpdate("INSERT INTO table_timestamp_and_random_string VALUES " +
-                    "(now(), '" + getRandomString() + "')");
-
-            // Log statement with your name
-            System.out.println("Dedi Seme - Database method accessed at: " + new Date());
-
-            // Select all records
-            ResultSet resultSet = statement.executeQuery(
-                    "SELECT tick, random_string FROM table_timestamp_and_random_string");
-
-            // Build HTML response
-            StringBuilder response = new StringBuilder();
-            response.append("<h1>Database Records</h1>");
-            response.append("<table border='1'>");
-            response.append("<tr><th>Timestamp</th><th>Random String</th></tr>");
-
+            System.out.println("Print statement inside the GettingStartedApplication.database() method. Dedi Seme");
+            final var resultSet = statement.executeQuery("SELECT tick FROM ticks");
+            final var output = new ArrayList<>();
             while (resultSet.next()) {
-                response.append("<tr>");
-                response.append("<td>").append(resultSet.getTimestamp("tick")).append("</td>");
-                response.append("<td>").append(resultSet.getString("random_string")).append("</td>");
-                response.append("</tr>");
+                output.add("Read from DB: " + resultSet.getTimestamp("tick"));
             }
 
-            response.append("</table>");
-            return response.toString();
+            model.put("records", output);
+            return "database";
 
-        } catch (Exception e) {
-            return "Error: " + e.getMessage();
+        } catch (Throwable t) {
+            model.put("message", t.getMessage());
+            return "error";
         }
     }
 
-    // Add this helper method to generate random strings
     private String getRandomString() {
         String characters = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
         StringBuilder result = new StringBuilder();
