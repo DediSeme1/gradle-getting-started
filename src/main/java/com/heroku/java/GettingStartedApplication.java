@@ -1,5 +1,6 @@
 package com.heroku.java;
 
+import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
@@ -8,8 +9,12 @@ import org.springframework.web.bind.annotation.GetMapping;
 
 import javax.sql.DataSource;
 import java.sql.Connection;
+import java.sql.ResultSet;
+import java.sql.Statement;
 import java.util.ArrayList;
+import java.util.Date;
 import java.util.Map;
+import java.util.Random;
 
 @SpringBootApplication
 @Controller
@@ -27,25 +32,57 @@ public class GettingStartedApplication {
     }
 
     @GetMapping("/database")
-    String database(Map<String, Object> model) {
+    public String database(HttpServletRequest request) {
         try (Connection connection = dataSource.getConnection()) {
-            final var statement = connection.createStatement();
-            statement.executeUpdate("CREATE TABLE IF NOT EXISTS ticks (tick timestamp)");
-            statement.executeUpdate("INSERT INTO ticks VALUES (now())");
+            Statement statement = connection.createStatement();
 
-            final var resultSet = statement.executeQuery("SELECT tick FROM ticks");
-            final var output = new ArrayList<>();
+            // Create table with new columns
+            statement.executeUpdate("CREATE TABLE IF NOT EXISTS " +
+                    "table_timestamp_and_random_string (tick timestamp, random_string varchar(50))");
+
+            // Insert timestamp and random string
+            statement.executeUpdate("INSERT INTO table_timestamp_and_random_string VALUES " +
+                    "(now(), '" + getRandomString() + "')");
+
+            // Log statement with your name
+            System.out.println("Dedi Seme - Database method accessed at: " + new Date());
+
+            // Select all records
+            ResultSet resultSet = statement.executeQuery(
+                    "SELECT tick, random_string FROM table_timestamp_and_random_string");
+
+            // Build HTML response
+            StringBuilder response = new StringBuilder();
+            response.append("<h1>Database Records</h1>");
+            response.append("<table border='1'>");
+            response.append("<tr><th>Timestamp</th><th>Random String</th></tr>");
+
             while (resultSet.next()) {
-                output.add("Read from DB: " + resultSet.getTimestamp("tick"));
+                response.append("<tr>");
+                response.append("<td>").append(resultSet.getTimestamp("tick")).append("</td>");
+                response.append("<td>").append(resultSet.getString("random_string")).append("</td>");
+                response.append("</tr>");
             }
 
-            model.put("records", output);
-            return "database";
+            response.append("</table>");
+            return response.toString();
 
-        } catch (Throwable t) {
-            model.put("message", t.getMessage());
-            return "error";
+        } catch (Exception e) {
+            return "Error: " + e.getMessage();
         }
+    }
+
+    // Add this helper method to generate random strings
+    private String getRandomString() {
+        String characters = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
+        StringBuilder result = new StringBuilder();
+        Random random = new Random();
+
+        for (int i = 0; i < 10; i++) {
+            result.append(characters.charAt(random.nextInt(characters.length())));
+        }
+
+        return result.toString();
     }
 
     public static void main(String[] args) {
